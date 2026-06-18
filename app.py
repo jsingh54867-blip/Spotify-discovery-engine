@@ -180,18 +180,6 @@ with st.sidebar:
         help="Get yours free at groq.com"
     )
 
-    st.markdown("**Reddit API**")
-    reddit_id = st.text_input(
-        "Client ID",
-        type="password",
-        placeholder="Your Reddit client ID"
-    )
-    reddit_secret = st.text_input(
-        "Client Secret",
-        type="password",
-        placeholder="Your Reddit client secret"
-    )
-
     st.markdown("---")
     st.markdown("**Data collection settings**")
     review_depth = st.select_slider(
@@ -202,7 +190,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown(
-        "<div style='color:#b3b3b3; font-size:0.8rem;'>Analyzes App Store, Play Store & Reddit in real time using Groq + Llama 3</div>",
+        "<div style='color:#b3b3b3; font-size:0.8rem;'>Analyzes App Store, Play Store & Trustpilot in real time using Groq + Llama 3</div>",
         unsafe_allow_html=True
     )
 
@@ -211,7 +199,7 @@ with st.sidebar:
 
 st.markdown('<div class="main-title">Spotify Discovery Intelligence Engine</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="subtitle">AI-powered analysis of user feedback across App Store, Play Store & Reddit — uncovering why music discovery fails</div>',
+    '<div class="subtitle">AI-powered analysis of user feedback across App Store, Play Store & Trustpilot — uncovering why music discovery fails</div>',
     unsafe_allow_html=True
 )
 
@@ -236,12 +224,12 @@ with col_info:
         )
 
 if run_analysis:
-    if not groq_key or not reddit_id or not reddit_secret:
-        st.error("Please fill in all credentials in the sidebar first.")
+    if not groq_key:
+        st.error("Please add your Groq API key in the sidebar first.")
     else:
         with st.spinner(""):
             # Step 1: Collect
-            df = collect_all(reddit_id, reddit_secret)
+            df = collect_all()
             st.session_state.df = df
 
             # Step 2: Analyze
@@ -479,6 +467,6 @@ else:
         <div style="font-size:3rem; margin-bottom:1rem;">🎵</div>
         <div style="font-size:1.1rem; font-weight:600; color:#ffffff; margin-bottom:0.5rem;">Ready to analyze</div>
         <div style="font-size:0.9rem;">Add your credentials in the sidebar and click <strong style="color:#1DB954;">Run Analysis</strong> to begin.</div>
-        <div style="font-size:0.85rem; margin-top:1rem;">Pulls real data from App Store · Play Store · Reddit → analyzes with Groq Llama 3</div>
+        <div style="font-size:0.85rem; margin-top:1rem;">Pulls real data from App Store · Play Store · Trustpilot → analyzes with Groq Llama 3</div>
     </div>
     """, unsafe_allow_html=True)
