@@ -6,7 +6,7 @@ All sources feed into one unified, clean format.
 
 import pandas as pd
 from google_play_scraper import reviews as gplay_reviews, Sort
-from app_store_scraper import AppStore
+from itunes_app_scraper.scraper import AppStoreScraper
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
@@ -52,15 +52,20 @@ def fetch_play_store(count: int = 300) -> pd.DataFrame:
 def fetch_app_store(count: int = 200) -> pd.DataFrame:
     rows = []
     try:
-        app = AppStore(country="us", app_name="spotify-music", app_id="324684580")
-        app.review(how_many=count)
-        for r in app.reviews:
-            if r.get("review") and len(r["review"]) > 40:
+        scraper = AppStoreScraper()
+        reviews = scraper.get_app_reviews(
+            app_id="324684580",
+            countries=["us", "gb", "in"],
+            num=count
+        )
+        for r in reviews:
+            text = _clean(r.get("review", ""))
+            if len(text) > 40:
                 rows.append({
                     "source": "App Store",
-                    "text": _clean(r["review"]),
+                    "text": text,
                     "rating": r.get("rating"),
-                    "date": r["date"].strftime("%Y-%m-%d") if r.get("date") else None,
+                    "date": str(r.get("date", ""))[:10],
                     "upvotes": 0,
                 })
     except Exception as e:
