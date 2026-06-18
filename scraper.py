@@ -1,107 +1,28 @@
 """
 scraper.py
-Collects reviews from Reddit, Google Play Store, and Apple App Store.
+Collects reviews from Google Play Store, Apple App Store, and Trustpilot.
 All sources feed into one unified, clean format.
 """
 
-import praw
 import pandas as pd
 from google_play_scraper import reviews as gplay_reviews, Sort
 from app_store_scraper import AppStore
 import streamlit as st
-from datetime import datetime
+import requests
+from bs4 import BeautifulSoup
 import time
 
-
-# ─── Unified review schema ───────────────────────────────────────────────────
-# Every source produces rows with these exact keys:
-# source | text | rating | date | upvotes
 
 def _clean(text: str) -> str:
     if not text:
         return ""
-    return " ".join(str(text).split())  # collapse whitespace
-
-
-# ─── Reddit ──────────────────────────────────────────────────────────────────
-
-def fetch_reddit(client_id: str, client_secret: str, limit: int = 150) -> pd.DataFrame:
-    """
-    Pull posts + top comments from Spotify-related subreddits.
-    Focuses on discovery and recommendation frustrations.
-    """
-    reddit = praw.Reddit(
-        client_id=client_id,
-        client_secret=client_secret,
-        user_agent="SpotifyDiscoveryResearch/1.0"
-    )
-
-    subreddits = ["spotify", "SpotifyMusic", "music"]
-    queries = [
-        "music discovery frustrating",
-        "spotify recommend same songs",
-        "stuck listening same music",
-        "spotify algorithm bubble",
-        "new music discovery",
-        "repeat playlist spotify",
-        "spotify recommendation bad",
-    ]
-
-    rows = []
-    seen = set()
-
-    for subreddit_name in subreddits:
-        subreddit = reddit.subreddit(subreddit_name)
-        for query in queries[:3]:  # limit queries per subreddit to stay fast
-            try:
-                for submission in subreddit.search(query, limit=10, sort="relevance", time_filter="year"):
-                    if submission.id in seen:
-                        continue
-                    seen.add(submission.id)
-
-                    # Add the post itself
-                    if len(submission.selftext) > 50:
-                        rows.append({
-                            "source": "Reddit",
-                            "text": _clean(submission.title + " " + submission.selftext),
-                            "rating": None,
-                            "date": datetime.utcfromtimestamp(submission.created_utc).strftime("%Y-%m-%d"),
-                            "upvotes": submission.score,
-                        })
-
-                    # Add top comments
-                    submission.comments.replace_more(limit=0)
-                    for comment in submission.comments[:5]:
-                        if len(comment.body) > 80:
-                            rows.append({
-                                "source": "Reddit",
-                                "text": _clean(comment.body),
-                                "rating": None,
-                                "date": datetime.utcfromtimestamp(comment.created_utc).strftime("%Y-%m-%d"),
-                                "upvotes": comment.score,
-                            })
-
-                    if len(rows) >= limit:
-                        break
-                if len(rows) >= limit:
-                    break
-            except Exception:
-                continue
-        if len(rows) >= limit:
-            break
-
-    return pd.DataFrame(rows[:limit])
+    return " ".join(str(text).split())
 
 
 # ─── Google Play Store ───────────────────────────────────────────────────────
 
-def fetch_play_store(count: int = 200) -> pd.DataFrame:
-    """
-    Scrape Spotify reviews from Google Play Store.
-    Pulls both recent and most-relevant reviews.
-    """
+def fetch_play_store(count: int = 300) -> pd.DataFrame:
     rows = []
-
     try:
         for sort_order in [Sort.MOST_RELEVANT, Sort.NEWEST]:
             result, _ = gplay_reviews(
@@ -123,22 +44,16 @@ def fetch_play_store(count: int = 200) -> pd.DataFrame:
                     })
     except Exception as e:
         st.warning(f"Play Store scraping partial: {e}")
-
     return pd.DataFrame(rows)
 
 
 # ─── Apple App Store ─────────────────────────────────────────────────────────
 
-def fetch_app_store(count: int = 100) -> pd.DataFrame:
-    """
-    Scrape Spotify reviews from Apple App Store.
-    """
+def fetch_app_store(count: int = 200) -> pd.DataFrame:
     rows = []
-
     try:
         app = AppStore(country="us", app_name="spotify-music", app_id="324684580")
         app.review(how_many=count)
-
         for r in app.reviews:
             if r.get("review") and len(r["review"]) > 40:
                 rows.append({
@@ -150,36 +65,64 @@ def fetch_app_store(count: int = 100) -> pd.DataFrame:
                 })
     except Exception as e:
         st.warning(f"App Store scraping partial: {e}")
+    return pd.DataFrame(rows)
 
+
+# ─── Trustpilot ──────────────────────────────────────────────────────────────
+
+def fetch_trustpilot(pages: int = 8) -> pd.DataFrame:
+    rows = []
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    for page in range(1, pages + 1):
+        try:
+            url = f"https://www.trustpilot.com/review/www.spotify.com?page={page}"
+            response = requests.get(url, headers=headers, timeout=10)
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            reviews = soup.find_all("div", {"data-service-review-text-typography": True})
+            ratings = soup.find_all("div", {"data-service-review-rating": True})
+            dates = soup.find_all("time")
+
+            for i, review in enumerate(reviews):
+                text = _clean(review.get_text())
+                if len(text) > 40:
+                    rows.append({
+                        "source": "Trustpilot",
+                        "text": text,
+                        "rating": int(ratings[i].get("data-service-review-rating", 0)) if i < len(ratings) else None,
+                        "date": dates[i].get("datetime", "")[:10] if i < len(dates) else None,
+                        "upvotes": 0,
+                    })
+            time.sleep(0.5)
+        except Exception:
+            continue
     return pd.DataFrame(rows)
 
 
 # ─── Master collector ─────────────────────────────────────────────────────────
 
-def collect_all(reddit_client_id: str, reddit_client_secret: str) -> pd.DataFrame:
-    """
-    Runs all three scrapers and returns one unified DataFrame.
-    Deduplicates and filters very short entries.
-    """
+def collect_all() -> pd.DataFrame:
     dfs = []
 
     with st.status("Collecting data from all sources...", expanded=True) as status:
         st.write("📱 Scraping Google Play Store reviews...")
-        play_df = fetch_play_store(200)
+        play_df = fetch_play_store(300)
         st.write(f"   ✓ {len(play_df)} Play Store reviews collected")
         dfs.append(play_df)
         time.sleep(1)
 
         st.write("🍎 Scraping Apple App Store reviews...")
-        apple_df = fetch_app_store(100)
+        apple_df = fetch_app_store(200)
         st.write(f"   ✓ {len(apple_df)} App Store reviews collected")
         dfs.append(apple_df)
         time.sleep(1)
 
-        st.write("💬 Fetching Reddit discussions...")
-        reddit_df = fetch_reddit(reddit_client_id, reddit_client_secret, 150)
-        st.write(f"   ✓ {len(reddit_df)} Reddit posts/comments collected")
-        dfs.append(reddit_df)
+        st.write("⭐ Scraping Trustpilot reviews...")
+        trust_df = fetch_trustpilot(8)
+        st.write(f"   ✓ {len(trust_df)} Trustpilot reviews collected")
+        dfs.append(trust_df)
 
         status.update(label="Data collection complete!", state="complete")
 
