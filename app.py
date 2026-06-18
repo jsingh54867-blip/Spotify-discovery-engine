@@ -173,8 +173,12 @@ with st.sidebar:
     st.markdown("### 🎵 Configuration")
     st.markdown("---")
 
+    # Read from Streamlit secrets if available, otherwise ask user
+    default_groq = st.secrets.get("GROQ_API_KEY", "") if hasattr(st, "secrets") else ""
+
     groq_key = st.text_input(
         "Groq API Key",
+        value=default_groq,
         type="password",
         placeholder="gsk_...",
         help="Get yours free at groq.com"
@@ -282,8 +286,8 @@ if st.session_state.results:
     with col4:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-number">{source_breakdown.get('Reddit', 0)}</div>
-            <div class="metric-label">Reddit discussions</div>
+            <div class="metric-number">{source_breakdown.get('Trustpilot', 0)}</div>
+            <div class="metric-label">Trustpilot reviews</div>
         </div>""", unsafe_allow_html=True)
 
     # ── Source distribution chart ─────────────────────────────────────────────
