@@ -77,7 +77,7 @@ Return ONLY the JSON. No explanation."""
 
         try:
             response = client.chat.completions.create(
-                model="llama3-70b-8192",
+                model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
                 max_tokens=2000,
@@ -130,7 +130,7 @@ Return ONLY the JSON. No explanation."""
 
     try:
         response = client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=2000,
@@ -176,7 +176,7 @@ Return ONLY the JSON. No explanation."""
 
     try:
         response = client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=2000,
@@ -217,7 +217,7 @@ Answer the question directly. Be honest about limitations in the data."""
 
     try:
         response = client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
             max_tokens=1000,
