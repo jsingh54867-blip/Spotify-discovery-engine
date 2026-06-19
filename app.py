@@ -173,16 +173,7 @@ with st.sidebar:
     st.markdown("### 🎵 Configuration")
     st.markdown("---")
 
-    # Read from Streamlit secrets if available, otherwise ask user
-    default_groq = st.secrets.get("GROQ_API_KEY", "") if hasattr(st, "secrets") else ""
-
-    groq_key = st.text_input(
-        "Groq API Key",
-        value=default_groq,
-        type="password",
-        placeholder="gsk_...",
-        help="Get yours free at groq.com"
-    )
+    groq_key = st.secrets["GROQ_API_KEY"]
 
     st.markdown("---")
     st.markdown("**Data collection settings**")
@@ -223,30 +214,25 @@ with col_btn:
 with col_info:
     if not st.session_state.results:
         st.markdown(
-            "<div style='color:#b3b3b3; padding-top:0.6rem; font-size:0.9rem;'>Add your credentials in the sidebar, then click Run Analysis. Takes ~2 minutes.</div>",
+            "<div style='color:#b3b3b3; padding-top:0.6rem; font-size:0.9rem;'>Click Run Analysis. Takes ~2 minutes.</div>",
             unsafe_allow_html=True
         )
 
 if run_analysis:
-    if not groq_key:
-        st.error("Please add your Groq API key in the sidebar first.")
-    else:
-        with st.spinner(""):
-            # Step 1: Collect
-            df = collect_all()
-            st.session_state.df = df
+    with st.spinner(""):
+        df = collect_all()
+        st.session_state.df = df
 
-            # Step 2: Analyze
-            with st.status("Running AI analysis with Groq + Llama 3...", expanded=True) as status:
-                st.write("🧠 Extracting recurring themes...")
-                st.write("👥 Identifying user segments...")
-                st.write("💡 Surfacing unmet needs...")
-                results = run_full_analysis(groq_key, df)
-                st.session_state.results = results
-                status.update(label="Analysis complete!", state="complete")
+        with st.status("Running AI analysis with Groq + Llama 3...", expanded=True) as status:
+            st.write("🧠 Extracting recurring themes...")
+            st.write("👥 Identifying user segments...")
+            st.write("💡 Surfacing unmet needs...")
+            results = run_full_analysis(groq_key, df)
+            st.session_state.results = results
+            status.update(label="Analysis complete!", state="complete")
 
-        st.success(f"✓ Analyzed {results['total_reviews']} data points across 3 sources")
-        st.rerun()
+    st.success(f"✓ Analyzed {results['total_reviews']} data points across 3 sources")
+    st.rerun()
 
 
 # ─── Results ─────────────────────────────────────────────────────────────────
@@ -470,7 +456,7 @@ else:
     <div style="text-align:center; padding: 3rem 0; color:#b3b3b3;">
         <div style="font-size:3rem; margin-bottom:1rem;">🎵</div>
         <div style="font-size:1.1rem; font-weight:600; color:#ffffff; margin-bottom:0.5rem;">Ready to analyze</div>
-        <div style="font-size:0.9rem;">Add your credentials in the sidebar and click <strong style="color:#1DB954;">Run Analysis</strong> to begin.</div>
+        <div style="font-size:0.9rem;">Click <strong style="color:#1DB954;">Run Analysis</strong> to begin.</div>
         <div style="font-size:0.85rem; margin-top:1rem;">Pulls real data from App Store · Play Store · Trustpilot → analyzes with Groq Llama 3</div>
     </div>
     """, unsafe_allow_html=True)
